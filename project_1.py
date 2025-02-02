@@ -41,11 +41,21 @@ class VSpotify:
             return artist, song
         return None, None
 
-    def get_artist_song(self, artist_name):
+    def get_artist_random_song(self, artist_name):
         results = self.sp.search(q=f"artist:{artist_name}", type="track", limit=50)
         tracks = results['tracks']['items']
-        selected_songs = random.sample(tracks, 5) if len(tracks) >= 5 else tracks
-        return selected_songs
+        if tracks:
+            return random.choice(tracks)
+        return None
+
+    def get_artist_song(self, artist_name, song_name):
+        results = self.sp.search(q=f"artist:{artist_name}", type="track", limit=50)
+        tracks = results['tracks']['items']
+        if tracks:
+            for track in tracks:
+                if track['name'].lower() == song_name.lower():
+                    return track
+        return None
 
     def play_song(self, song_uri):
         self.sp.start_playback(uris=[song_uri])
@@ -64,68 +74,63 @@ class VSpotify:
             time.sleep(2)
     
     def dashboard(self):
-        print("+-----------------------------------------------+")
-        print("|                This is VSpotify               |")
-        print("+-----------------------------------------------+")
-        print("|    (1) Search a song                          |")
-        print("|    (2) Search a song from liked songs library |")
-        print("|    (3) Choose an artist to listen             |")
-        print("|    (4) Exit and Print VReceiptify             |")
-        print("+-----------------------------------------------+")
-        return int(input("Select(1-4): "))
+            print("+-----------------------------------------------+")
+            print("|                This is VSpotify               |")
+            print("+-----------------------------------------------+")
+            print("|    (1) Search a song                          |")
+            print("|    (2) Search a song from liked songs library |")
+            print("|    (3) Choose an artist to listen             |")
+            print("|    (4) Exit and Print VReceiptify             |")
+            print("+-----------------------------------------------+")
+            return int(input("Select(1-4): "))
     
-    def music_player(self, choice):
-        try:
-            match choice:
-                case 1:
-                    ...
-                case 2:
-                    ...
-                case 3:
-                    print("Fetching current song...")
-                    artist, song_name = self.get_current_song()
+    def music_player(self, choice): 
+        match choice:
+            case 1:
+                ...
+            case 2:
+                ...
+            case 3:
+                print("No song is currently playing.")
+                artist = input("Enter the name of the artist: ")
+                song_name = input("Song you want to listen: ")
 
-                    if artist:
-                        print(f"You're listening to: {artist} - {song_name}")
-                        print(f"Fetching songs from {artist}...")
-                        songs = self.get_artist_song(artist)
+                print(f"You're listening to: {artist} - {song_name}")
+                print(f"Fetching song from {artist}")
+                song = self.get_artist_song(artist, song_name)  
 
-                        
+                if song:
+                    print(f"Now playing: {song['name']}")
+                    self.played_songs.append(song['name'])
 
-                        for song in songs:
-                            print(f"Now playing: {song['name']}")
-                            self.played_songs.append(song['name'])
+                    #Plays song
+                    self.play_song(song['uri'])
+                    time.sleep(5)
 
-                            #Play song on Spotify
-                            self.play_song(song['uri'])
-                            time.sleep(5)
+                    #Fetch and display lyrics
+                    lyrics = self.get_lyrics(artist, song['name'])
+                    self.display_lyrics_with_timing(lyrics)
 
-                            #Fetch and display lyrics
-                            lyrics = self.get_lyrics(artist, song['name'])
-                            self.display_lyrics_with_timing(lyrics)
+                else:
+                    print("Sorry, the requested song was not found.")
 
-                            time.sleep(10)
+                return
 
-                    else:
-                        print("No song is currently playing.")
+            case 4:
+                print("\nSongs Played:")
+                for song in self.played_songs:
+                    print(f"- {song}")
+                sys.exit(0)
                 
-                case 4:
-                    print("\nSongs Played:")
-                    for song in self.played_songs:
-                        print(f"- {song}")
-                    sys.exit(0)
-                    
-                case _:
-                    print("Invalid Choice")
-                    
-        except ValueError:
-            sys.exit("Choice must be in a range of 1 - 4.")
+            case _:
+                print("Invalid Choice")
 
 
 
 def main():
     spotify = VSpotify.get()
-    spotify.music_player(spotify.dashboard())
+    while True: 
+        spotify.music_player(spotify.dashboard())
 
 
 
