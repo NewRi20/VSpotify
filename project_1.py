@@ -1,8 +1,5 @@
-import spotipy, lyricsgenius, time, random, sys
+import spotipy, lyricsgenius, time, random, sys, os
 from spotipy.oauth2 import SpotifyOAuth 
-
-
-import pygame
 
 class VSpotify:
     def __init__(self, sp, genius):
@@ -63,35 +60,80 @@ class VSpotify:
     def get_lyrics(self, artist, song_name):
         try:
             song = self.genius.search_song(song_name, artist)
-            return song.lyrics if song else "Lyrics not found."
+            if song:
+                lyrics = song.lyrics.split("\n")
+                clean_lyrics = []
+
+                for line in lyrics:
+                    if "embed" in line:
+                        break
+                    clean_lyrics.append(line)
+                return "\n".join(clean_lyrics)
+            return "Lyrics not found"
         except:
             return "Lyrics not found"
     
-    def display_lyrics_with_timing(self,lyrics):
+    def display_lyrics_with_timing(self,lyrics, song_uri):
         lines = lyrics.split("\n")
-        for line in lines:
-            print(line)
-            time.sleep(2)
+
+        start_time = self.sp.current_playback().get("progress_ms", 0) / 1000
+        song_start = time.time() - start_time # Adjust time offset
+        for i, line in enumerate(lines):
+            if self.get_playback_state(song_uri) == "paused":
+                print("⏸️ Song is paused... Waiting to resume")
+                while self.get_playback_state(song_uri) == "paused":
+                    time.sleep(1)
+
+            elif self.get_playback_state(song_uri) == "stopped":
+                print("🛑 Song has stopped.")
+                return
+
+            # Sync lyrics based on real-time progress
+            while True:
+                playback = self.sp.current_playback()
+                if not playback:
+                    print("⚠️ No playback data found. Exiting...")
+                    return 
+                
+                spotify_time = playback.get("progress_ms", 0) / 1000
+                current_time = time.time() - song_start
+
+                if spotify_time >= current_time:
+                    print(line)
+                    break
+
+                time.sleep(0.2)
+        print("🎵 Lyrics finished!")
+        return
+            
+             
     
+    def get_playback_state(self, song_uri):
+        playback = self.sp.current_playback()
+
+        if playback:
+            if playback.get("is_playing"):
+                return "playing" if playback["item"]["uri"] == song_uri else "stopped"
+            else:
+                return "paused"
+
     def dashboard(self):
             print("+-----------------------------------------------+")
             print("|                This is VSpotify               |")
             print("+-----------------------------------------------+")
             print("|    (1) Search a song                          |")
-            print("|    (2) Search a song from liked songs library |")
-            print("|    (3) Choose an artist to listen             |")
-            print("|    (4) Exit and Print VReceiptify             |")
+            print("|    (2) Choose an artist to listen             |")
+            print("|    (3) Print VReceiptify                      |")
+            print("|    (4) Exit                                   |")
             print("+-----------------------------------------------+")
-            return int(input("Select(1-4): "))
+            return int(input("Select(1-3): "))
     
     def music_player(self, choice): 
         match choice:
             case 1:
-                ...
-            case 2:
-                ...
-            case 3:
-                print("No song is currently playing.")
+                os.system('cls')
+                current_artist, current_song = self.get_current_song()
+                print(f"You're currently listening to {current_artist} - {current_song}")
                 artist = input("Enter the name of the artist: ")
                 song_name = input("Song you want to listen: ")
 
@@ -109,19 +151,52 @@ class VSpotify:
 
                     #Fetch and display lyrics
                     lyrics = self.get_lyrics(artist, song['name'])
-                    self.display_lyrics_with_timing(lyrics)
+                    self.display_lyrics_with_timing(lyrics, song['uri'])
 
                 else:
                     print("Sorry, the requested song was not found.")
 
                 return
 
-            case 4:
+            case 2:
+                os.system('cls')
+                current_artist, current_song = self.get_current_song()
+                print(f"You're currently listening to {current_artist} - {current_song}")
+                artist = input("Enter new name of the artist: ")
+
+                print(f"Fetching song from {artist}")
+                song = self.get_artist_random_song(artist)  
+
+                if song:
+                    print(f"You're listening to: {artist} - {song['name']}")
+                    print(f"Now playing: {song['name']}")
+                    self.played_songs.append(song['name'])
+
+                    #Plays song
+                    self.play_song(song['uri'])
+                    time.sleep(5)
+
+                    #Fetch and display lyrics
+                    lyrics = self.get_lyrics(artist, song['name'])
+                    self.display_lyrics_with_timing(lyrics, song['uri'])
+
+                else:
+                    print("Sorry, the requested song was not found.")
+
+                return
+
+            case 3:
+                os.system('cls')
                 print("\nSongs Played:")
                 for song in self.played_songs:
                     print(f"- {song}")
+                return
+            
+            case 4:
+                os.system('cls')
+                print("\nSaved VReceiptify")
+                # saved pdf receiptify
                 sys.exit(0)
-                
             case _:
                 print("Invalid Choice")
 
