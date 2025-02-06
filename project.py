@@ -5,12 +5,17 @@ from pyfiglet import Figlet
 from termcolor import colored
 
 class VSpotify:
+
     def __init__(self, sp, genius):
-        self.sp = sp
-        self.genius = genius
-        self.songs_played = []
-        self.engine = pyttsx3.init()
-        self.figlet = Figlet()
+        try:
+            self.sp = sp
+            self.genius = genius
+            self._songs_played = []
+            self.engine = pyttsx3.init()
+            self.figlet = Figlet()
+        except Exception as e:
+            print(e)
+            sys.exit(0)
 
     @classmethod
     def get(cls):
@@ -35,17 +40,25 @@ class VSpotify:
         ))
         return cls(sp, genius)
     
+
     def say_song(self, phrase):
         self.engine.say(phrase)
         self.engine.runAndWait()
 
+
     def get_current_song(self):
-        current_track = self.sp.current_playback()
-        if current_track:
-            artist = current_track['item']['artists'][0]['name']
-            song = current_track['item']['name']
-            return artist, song
+        try:
+            current_track = self.sp.current_playback()
+            if current_track:
+                artist = current_track['item']['artists'][0]['name']
+                song = current_track['item']['name']
+                return artist, song
+        except Exception as e:
+            print("Error in getting current song: {e}")
+    
         return None, None
+        
+
 
     def get_artist_random_song(self, artist_name):
         artist_name = artist_name.strip().lower()
@@ -54,6 +67,7 @@ class VSpotify:
         if tracks:
             return random.choice(tracks)
         return None
+
 
     def get_artist_song(self, artist_name, song_name):
         artist_name = artist_name.strip().lower()
@@ -65,9 +79,32 @@ class VSpotify:
                 if song_name.lower() in track['name'].lower():
                     return track
         return None
+    
+    def get_song_duration(self, artist_name, song_name):
+        time.sleep(1)
+        artist_name = artist_name.strip()
+        song_name = song_name.strip()
+        result = self.sp.search(q=f"track:{song_name} artist:{artist_name}", type='track', limit=1)
+        
+        if result['tracks']['items']:
+            track_id = result['tracks']['items'][0]['id']
+
+            track = self.sp.track(track_id)
+            duration_ms = track['duration_ms']
+
+            duration_sec = duration_ms / 1000
+            minutes = int(duration_sec // 60)
+            seconds = int(duration_sec % 60)
+
+            return f"{minutes}:{seconds}"
+        else:
+            print(f"No track-duration found for {artist_name} - {song_name}")
+            return None, None
+
 
     def play_song(self, song_uri):
         self.sp.start_playback(uris=[song_uri])
+
 
     def get_lyrics(self, artist, song_name):
         time.sleep(1)
@@ -85,8 +122,10 @@ class VSpotify:
         except Exception as e:
             print(f"Error fetching lyrics: {e}")
             return "Lyrics not found"
+        
+        return "Lyrics not found"
     
-            
+                
     def display_lyrics_with_timing(self, lyrics, song_uri):
         os.system('cls')
         lines = lyrics.split("\n")
@@ -95,7 +134,7 @@ class VSpotify:
         
         for i, line in enumerate(lines):
             if keyboard.is_pressed('q'):
-                print("returning to dashboard...")
+                print("\n\nReturning to dashboard...")
                 return
 
             if self.get_playback_state(song_uri) == "paused":
@@ -112,6 +151,7 @@ class VSpotify:
         print("\n🎵 Lyrics finished! 🎵")   
         return      
     
+
     def get_playback_state(self, song_uri):
         playback = self.sp.current_playback()
 
@@ -120,53 +160,100 @@ class VSpotify:
                 return "playing" if playback["item"]["uri"] == song_uri else "stopped"
             else:
                 return "paused"
+            
+
+    def retrieve(self):
+        try:    
+            with open("songs_record.csv", 'r') as file:
+                reader = csv.DictReader(file, fieldnames=["frequency", "song_name", "duration"])
+                next(reader)
+
+                if not any(reader):
+                    raise StopIteration("No records yet...")
+
+                file.seek(0)
+                next(reader)
+            
+                for line in reader:
+                    song_name = line['song_name']
+                    freq = int(line['frequency'])
+                    duration = line['duration']
+                    
+                    flag_found = False
+                    for song in self._songs_played:
+                        if song['song_name'] == song_name:
+                            song['frequency'] += freq
+                            flag_found = True
+                            break
+                    if not flag_found:
+                        self._songs_played.append({"frequency" : freq, "song_name" : song_name, "duration": duration})      
+                        
+        except StopIteration:
+            print("No records yet...")
+    
+        
 
     def save(self):
-        with open("songs_record.csv", 'a', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=["song_name", "frequency"])
-            for song in self.songs_played:
-                writer.writerow({"song_name" : song['song_name'], "frequency" : song['frequency']})
+        try:
+            with open("songs_record.csv", 'w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=["frequency", "song_name", "duration"])
+                writer.writeheader()
+                for song in self._songs_played:
+                    writer.writerow({"song_name" : song['song_name'], "frequency" : song['frequency'], "duration" : song['duration']})
+        except Exception as e:
+            print(f"Error in saving list of songs: {e}")
+            return
 
-    def update_songs_played(self, song_name):
+    def update_songs_played(self, song_name, song_duration):
         
         # First append the song then update its frequency also
-        for i, song_played in enumerate(self.songs_played):
+        for i, song_played in enumerate(self._songs_played):
             if song_played['song_name'] == song_name:
                 song_played['frequency'] += 1
                 return
             
-        self.songs_played.append({'song_name' : song_name, 'frequency' : 1})
+        self._songs_played.append({'frequency' : 1, 'song_name' : song_name, 'duration': song_duration})
+    
 
 
     def dashboard(self):
             color = colored(self.figlet.renderText("VSpotify"), 'green')
             print(color)
-            print("+-----------------------------------------------+")
-            print("|                This is VSpotify               |")
-            print("+-----------------------------------------------+")
-            print("|    (1) Search a song                          |")
-            print("|    (2) Choose an artist to listen             |")
-            print("|    (3) Print VReceiptify                      |")
-            print("|    (4) Exit                                   |")
-            print("+-----------------------------------------------+")
-            return int(input("Select(1-3): "))
+            try:
+                print("+-----------------------------------------------+")
+                print("|                This is VSpotify               |")
+                print("+-----------------------------------------------+")
+                print("|    (1) Search a song                          |")
+                print("|    (2) Choose an artist to listen             |")
+                print("|    (3) Print VReceiptify                      |")
+                print("|    (4) Exit                                   |")
+                print("+-----------------------------------------------+")
+                return int(input("Select(1-3): "))
+            except ValueError:
+                print("Invalid Input...")
     
+
     def music_player(self, choice): 
         match choice:
             case 1:
                 os.system('cls')
                 current_artist, current_song = self.get_current_song()
+                if not current_artist and not current_song:
+                    print("No song currently playing.")
+                    current_artist, current_song = "Unknown", "Unknown"
+
                 print(f"You're currently listening to {current_artist} - {current_song}")
                 artist = input("Enter the name of the artist: ")
                 song_name = input("Song you want to listen: ") 
 
                 print(f"You're listening to: {artist} - {song_name}")
                 print(f"Fetching song from {artist}")
-                song = self.get_artist_song(artist, song_name)  
+                song = self.get_artist_song(artist, song_name)
+                song_duration = self.get_song_duration(artist, song_name)  
 
                 if song:
                     self.say_song(f"Now playing: {song['name']} by {artist}")
-                    self.update_songs_played(song['name'])
+                    self.update_songs_played(song['name'], song_duration)
 
                     #Plays song
                     self.play_song(song['uri'])
@@ -191,9 +278,10 @@ class VSpotify:
                 song = self.get_artist_random_song(artist)  
 
                 if song:
-                    print(f"You're listening to: {artist} - {song['name']}")
-                    print(f"Now playing: {song['name']}")
-                    self.update_songs_played(song['name'])
+                    song_duration = self.get_song_duration(artist, song['name']) 
+
+                    self.say_song(f"Now playing: {song['name']} by {artist}")
+                    self.update_songs_played(song['name'], song_duration)
 
                     #Plays song
                     self.play_song(song['uri'])
@@ -202,44 +290,42 @@ class VSpotify:
                     #Fetch and display lyrics
                     lyrics = self.get_lyrics(artist, song['name'])
                     self.display_lyrics_with_timing(lyrics, song['uri'])
-
+                    return
                 else:
                     print("Sorry, the requested song was not found.")
-
-                return
+                    return
 
             case 3:
                 os.system('cls')
-                if not self.songs_played:
+                if not self._songs_played:
                     print("No songs yet.")
                     os.system('pause')
                     return
-                table_data = [(song['song_name'], song['frequency']) for song in self.songs_played]
+                table_data = [(song['frequency'], song['song_name'], song['duration']) for song in sorted(self._songs_played, key=lambda song: int(song['frequency']), reverse=True)]
                 songs = colored(self.figlet.renderText("Receiptify"), color='green')
                 print(songs)
                 
-                print(tabulate(table_data, headers=["Songs You Listen", " "], tablefmt="grid"))
+                print(tabulate(table_data, headers=["Qty", "Songs You Listen", ""], tablefmt="grid"))
                 os.system('pause')
                 return
             
             case 4:
                 os.system('cls')
                 self.figlet = Figlet(font='small')
+
                 # saved pdf receiptify
                 print(colored(self.figlet.renderText("THIS IS VSpotify"), color='red'))
                 print(colored("Irwen Fronda - Programmer", color='light_red'))
-                print("\nSaved to VReceiptify.jpg")
-
+                
                 #save to songs_record.csv
                 self.save()
                 sys.exit(0)
-            case _:
-                print("Invalid Choice")
 
 
 
 def main():
     spotify = VSpotify.get()
+    spotify.retrieve()
     while True: 
         spotify.music_player(spotify.dashboard())
 
