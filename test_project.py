@@ -1,12 +1,11 @@
 import pytest
-from project import VSpotify
-from project import __init__
+from project import VSpotify, __init__, save, retrieve
 
 #Test empty _song_played
 def test_retrieve():
     spotify = VSpotify.get()
     try:
-        spotify.retrieve()
+        retrieve(spotify)
     except StopIteration:
         assert False, "It should raise StopIteration error..."
     else:
@@ -15,7 +14,7 @@ def test_retrieve():
 def test_save():
     spotify = VSpotify.get()
     try:
-        spotify.save()
+        save(spotify)
     except Exception as e:
         assert False, "Error in saving a list of songs..."
     else:

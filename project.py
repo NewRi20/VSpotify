@@ -11,7 +11,6 @@ class VSpotify:
             self.sp = sp
             self.genius = genius
             self._songs_played = []
-            self.engine = pyttsx3.init()
             self.figlet = Figlet()
         except Exception as e:
             print(e)
@@ -41,9 +40,8 @@ class VSpotify:
         return cls(sp, genius)
     
 
-    def say_song(self, phrase):
-        self.engine.say(phrase)
-        self.engine.runAndWait()
+    def get_song_list(self):
+        return self._songs_played
 
 
     def get_current_song(self):
@@ -58,7 +56,6 @@ class VSpotify:
     
         return None, None
         
-
 
     def get_artist_random_song(self, artist_name):
         artist_name = artist_name.strip().lower()
@@ -80,6 +77,7 @@ class VSpotify:
                     return track
         return None
     
+
     def get_song_duration(self, artist_name, song_name):
         time.sleep(1)
         artist_name = artist_name.strip()
@@ -160,49 +158,7 @@ class VSpotify:
                 return "playing" if playback["item"]["uri"] == song_uri else "stopped"
             else:
                 return "paused"
-            
-
-    def retrieve(self):
-        try:    
-            with open("songs_record.csv", 'r') as file:
-                reader = csv.DictReader(file, fieldnames=["frequency", "song_name", "duration"])
-                next(reader)
-
-                if not any(reader):
-                    raise StopIteration("No records yet...")
-
-                file.seek(0)
-                next(reader)
-            
-                for line in reader:
-                    song_name = line['song_name']
-                    freq = int(line['frequency'])
-                    duration = line['duration']
-                    
-                    flag_found = False
-                    for song in self._songs_played:
-                        if song['song_name'] == song_name:
-                            song['frequency'] += freq
-                            flag_found = True
-                            break
-                    if not flag_found:
-                        self._songs_played.append({"frequency" : freq, "song_name" : song_name, "duration": duration})      
-                        
-        except StopIteration:
-            print("No records yet...")
-    
-        
-
-    def save(self):
-        try:
-            with open("songs_record.csv", 'w', newline='') as file:
-                writer = csv.DictWriter(file, fieldnames=["frequency", "song_name", "duration"])
-                writer.writeheader()
-                for song in self._songs_played:
-                    writer.writerow({"song_name" : song['song_name'], "frequency" : song['frequency'], "duration" : song['duration']})
-        except Exception as e:
-            print(f"Error in saving list of songs: {e}")
-            return
+                         
 
     def update_songs_played(self, song_name, song_duration):
         
@@ -252,7 +208,7 @@ class VSpotify:
                 song_duration = self.get_song_duration(artist, song_name)  
 
                 if song:
-                    self.say_song(f"Now playing: {song['name']} by {artist}")
+                    say_song(f"Now playing: {song['name']} by {artist}")
                     self.update_songs_played(song['name'], song_duration)
 
                     #Plays song
@@ -280,7 +236,7 @@ class VSpotify:
                 if song:
                     song_duration = self.get_song_duration(artist, song['name']) 
 
-                    self.say_song(f"Now playing: {song['name']} by {artist}")
+                    say_song(f"Now playing: {song['name']} by {artist}")
                     self.update_songs_played(song['name'], song_duration)
 
                     #Plays song
@@ -318,16 +274,66 @@ class VSpotify:
                 print(colored("Irwen Fronda - Programmer", color='light_red'))
                 
                 #save to songs_record.csv
-                self.save()
+                save(self.get_song_list())
                 sys.exit(0)
 
+
+#It should have 3 other function to meet requirements
+def retrieve(spotify):
+    _songs_played = spotify.get_song_list()
+    try:    
+        with open("songs_record.csv", 'r') as file:
+            reader = csv.DictReader(file, fieldnames=["frequency", "song_name", "duration"])
+            next(reader)
+
+            if not any(reader):
+                raise StopIteration("No records yet...")
+
+            file.seek(0)
+            next(reader)
+        
+            for line in reader:
+                song_name = line['song_name']
+                freq = int(line['frequency'])
+                duration = line['duration']
+                
+                flag_found = False
+                for song in _songs_played:
+                    if song['song_name'] == song_name:
+                        song['frequency'] += freq
+                        flag_found = True
+                        break
+                if not flag_found:
+                    _songs_played.append({"frequency" : freq, "song_name" : song_name, "duration": duration})                
+    except StopIteration:
+        print("No records yet...")
+
+
+def save(spotify):
+    # _songs_played = spotify.get_song_list()
+    try:
+        with open("songs_record.csv", 'w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=["frequency", "song_name", "duration"])
+            writer.writeheader()
+            for song in spotify:
+                writer.writerow({"song_name" : song['song_name'], "frequency" : song['frequency'], "duration" : song['duration']})
+    except Exception as e:
+        print(f"Error in saving list of songs: {e}")
+        return
+
+
+def say_song(phrase):
+    engine = pyttsx3.init()
+    engine.say(phrase)
+    engine.runAndWait()
 
 
 def main():
     spotify = VSpotify.get()
-    spotify.retrieve()
+    retrieve(spotify)
     while True: 
         spotify.music_player(spotify.dashboard())
+    
 
 
 
