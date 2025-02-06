@@ -29,7 +29,7 @@ class VSpotify:
         
         # Genius API client
         genius = lyricsgenius.Genius(GENIUS_ACCESS_TOKEN)
-
+ 
         # Authentication with Spotify
         sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
             client_id=SPOTIFY_CLIENT_ID,
@@ -161,13 +161,10 @@ class VSpotify:
                          
 
     def update_songs_played(self, song_name, song_duration):
-        
-        # First append the song then update its frequency also
         for i, song_played in enumerate(self._songs_played):
             if song_played['song_name'] == song_name:
                 song_played['frequency'] += 1
                 return
-            
         self._songs_played.append({'frequency' : 1, 'song_name' : song_name, 'duration': song_duration})
     
 
@@ -278,7 +275,6 @@ class VSpotify:
                 sys.exit(0)
 
 
-#It should have 3 other function to meet requirements
 def retrieve(spotify):
     _songs_played = spotify.get_song_list()
     try:    
@@ -310,7 +306,6 @@ def retrieve(spotify):
 
 
 def save(spotify):
-    # _songs_played = spotify.get_song_list()
     try:
         with open("songs_record.csv", 'w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=["frequency", "song_name", "duration"])
@@ -334,7 +329,6 @@ def main():
     while True: 
         spotify.music_player(spotify.dashboard())
     
-
 
 
 if __name__ == "__main__":

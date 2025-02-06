@@ -1,11 +1,11 @@
 import spotipy
-import lyricsgenius, 
-import time, 
-import random, 
-import sys, 
-import os, 
-import pyttsx3, 
-import csv, 
+import lyricsgenius
+import time 
+import random
+import sys
+import os 
+import pyttsx3 
+import csv 
 import keyboard
 from tabulate import tabulate
 from spotipy.oauth2 import SpotifyOAuth 
